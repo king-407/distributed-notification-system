@@ -11,13 +11,20 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "sent_emails")
+@Table(name = "sent_emails",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_sent_emails_notification_id",
+                        columnNames = "notification_id"
+                )
+        })
 public class SentEmail {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "notification_id", nullable = false)
     private Long notificationId;
 
     private String recipient;

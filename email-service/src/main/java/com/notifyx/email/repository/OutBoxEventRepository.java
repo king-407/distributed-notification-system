@@ -13,7 +13,7 @@ import java.util.List;
 public interface OutBoxEventRepository extends JpaRepository<OutBoxEvent, Long> {
 
     @Query("""
-           SELECT o FROM OutboxEvent o
+           SELECT o FROM OutBoxEvent o
            WHERE o.status IN :statuses
            AND (o.nextRetryAt IS NULL OR o.nextRetryAt <= :now)
            """)

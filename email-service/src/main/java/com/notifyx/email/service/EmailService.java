@@ -12,6 +12,7 @@ import com.notifyx.email.repository.OutBoxEventRepository;
 import com.notifyx.email.repository.SentEmailRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -62,7 +63,7 @@ public class EmailService {
                 .retryCount(0)
                 .build();
 
-        sentEmailRepository.save(sentEmail);
+        sentEmailRepository.saveAndFlush(sentEmail);
 
         trySendEmail(sentEmail);
     }
@@ -89,7 +90,11 @@ public class EmailService {
             );
 
             // if invalid then caught by this exception which is handled by handlePermanentFailure(
-        } catch (IllegalArgumentException ex) {
+        }
+        catch (DataIntegrityViolationException ex) {
+            handlePermanentFailure(sentEmail, ex);
+        }
+        catch (IllegalArgumentException ex) {
             handlePermanentFailure(sentEmail, ex);
 
             //If normal failure then retry (handleRetryableFailure)
