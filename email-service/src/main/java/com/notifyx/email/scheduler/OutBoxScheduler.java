@@ -53,6 +53,7 @@ public class OutBoxScheduler {
                     payload
             );
 
+            // After publishing to kafka set the status for outbox to PUBLISHED //
             event.setStatus(OutBoxStatus.PUBLISHED);
             event.setLastError(null);
             outboxEventRepository.save(event);
@@ -75,10 +76,13 @@ public class OutBoxScheduler {
                     );
                     event.setStatus(OutBoxStatus.DEAD_LETTERED);
 
+
                 } catch (Exception dlqException) {
                     event.setStatus(OutBoxStatus.FAILED);
                     event.setLastError("DLQ publish failed: " + dlqException.getMessage());
                 }
+
+                // Before retrying mark this as FAILED //
             } else {
                 event.setStatus(OutBoxStatus.FAILED);
                 event.setNextRetryAt(

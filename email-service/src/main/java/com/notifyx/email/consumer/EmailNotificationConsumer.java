@@ -17,6 +17,7 @@ public class EmailNotificationConsumer {
     private final EmailService emailService;
     private final DlqService dlqService;
 
+    // Listening the vents pushed by the email notification service //
     @KafkaListener(
             topics = KafkaTopics.NOTIFICATION_EVENTS_TOPIC,
             groupId = "email-service-group"
@@ -26,9 +27,12 @@ public class EmailNotificationConsumer {
             log.info("Received email notification event for notificationId={}",
                     event.getNotificationId());
 
+            // Control goes to the event service which processes this payload //
             emailService.processEmailNotification(event);
 
         } catch (Exception ex) {
+
+
             Long notificationId = event != null ? event.getNotificationId() : null;
 
             log.error("Failed to process email notification event", ex);

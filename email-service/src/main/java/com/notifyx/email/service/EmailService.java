@@ -32,11 +32,13 @@ public class EmailService {
     @Transactional
     public void processEmailNotification(NotificationEventDto event) {
 
+        // checks for validation if the payload is valid //
         validateEvent(event);
 
         Optional<SentEmail> existingEmail =
                 sentEmailRepository.findByNotificationId(event.getNotificationId());
 
+        // if the same payload is already being processed then simply return and do nothing //
         if (existingEmail.isPresent()) {
             SentEmail existing = existingEmail.get();
 
@@ -50,6 +52,7 @@ public class EmailService {
             }
         }
 
+        // if not present then make am entry in the sent email and mark it as PROCESSING //
         SentEmail sentEmail = SentEmail.builder()
                 .notificationId(event.getNotificationId())
                 .recipient(event.getRecipient())
@@ -71,6 +74,8 @@ public class EmailService {
 
     private void trySendEmail(SentEmail sentEmail) {
         try {
+            // CONTROL goes to the SMTP server for sending which checks first if
+            // the email is valid //
             emailSenderService.sendEmail(sentEmail);
 
             sentEmail.setStatus(EmailStatus.SENT);
@@ -83,14 +88,17 @@ public class EmailService {
                     EvenType.EMAIL_SENT
             );
 
+            // if invalid then caught by this exception which is handled by handlePermanentFailure(
         } catch (IllegalArgumentException ex) {
             handlePermanentFailure(sentEmail, ex);
 
+            //If normal failure then retry (handleRetryableFailure)
         } catch (Exception ex) {
             handleRetryableFailure(sentEmail, ex);
         }
     }
 
+    // It retries after every fixed amount of time with backoff time //
     private void handleRetryableFailure(SentEmail sentEmail, Exception ex) {
         int retryCount = sentEmail.getRetryCount() == null ? 0 : sentEmail.getRetryCount();
         retryCount++;
@@ -98,11 +106,14 @@ public class EmailService {
         sentEmail.setRetryCount(retryCount);
         sentEmail.setLastError(ex.getMessage());
 
+        // if count exhausted then send it to dlq //
         if (retryCount >= MAX_EMAIL_RETRIES) {
             sentEmail.setStatus(EmailStatus.FAILED);
             sentEmail.setNextRetryAt(null);
             sentEmailRepository.save(sentEmail);
 
+            // also send to the outbox event and send to the notofication service and with
+            // failed event
             createStatusOutboxEvent(
                     sentEmail.getNotificationId(),
                     EvenType.EMAIL_FAILED
@@ -117,7 +128,9 @@ public class EmailService {
             return;
         }
 
+        // If retry not exhausted then mark it as RETRY_PENDING //
         sentEmail.setStatus(EmailStatus.RETRY_PENDING);
+        // setting the next retry at time //
         sentEmail.setNextRetryAt(
                 LocalDateTime.now().plusSeconds(calculateBackoffSeconds(retryCount))
         );
@@ -125,6 +138,8 @@ public class EmailService {
         sentEmailRepository.save(sentEmail);
     }
 
+    // This method saves the sent_email db as FAILED
+    // creates an OutBoxEvent which prepares the payload to send to the topic//
     private void handlePermanentFailure(SentEmail sentEmail, Exception ex) {
         sentEmail.setStatus(EmailStatus.FAILED);
         sentEmail.setLastError(ex.getMessage());
@@ -145,11 +160,13 @@ public class EmailService {
 
     private void createStatusOutboxEvent(Long notificationId, EvenType eventType) {
         try {
+            // First prepares the event to be sent to the topic //
             NotificationStatusEventDto statusEvent = NotificationStatusEventDto.builder()
                     .eventType(eventType)
                     .notificationId(notificationId)
                     .build();
 
+            // now saves the event in outbox with status as PENDING//
             OutBoxEvent outboxEvent = OutBoxEvent.builder()
                     .aggregateId(notificationId)
                     .aggregateType("EMAIL")
