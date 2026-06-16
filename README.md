@@ -435,6 +435,6 @@ Idempotency-Key: abc-123
 
 ## Shivam Tiwari
 
-Backend Engineer passionate about Java, distributed systems, scalable backend architectures, and event-driven microservices.
+Backend Engineer passionate about Java, AI, distributed systems, scalable backend architectures, and event-driven microservices.
 
 ---
